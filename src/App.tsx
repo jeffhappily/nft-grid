@@ -11,6 +11,13 @@ const App: React.FC = () => {
   const [contractAddress, setContractAddress] = useState<string | null>(
     "0x49cf6f5d44e70224e2e23fdcdd2c053f30ada28b"
   );
+  const [cursor, setCursor] = useState<{
+    next: string | null;
+    prev: string | null;
+  }>({
+    next: null,
+    prev: null,
+  });
 
   useEffect(() => {
     if (contractAddress) {
@@ -20,10 +27,37 @@ const App: React.FC = () => {
 
   async function fetchNfts(address: string) {
     try {
-      const response = await axios.get<{ assets: Nft[] }>(
-        `https://api.opensea.io/api/v1/assets?asset_contract_address=${address}&limit=200`
+      const response = await axios.get<{
+        assets: Nft[];
+        next: string;
+        previous: string;
+      }>(
+        `https://api.opensea.io/api/v1/assets?asset_contract_address=${address}`
       );
       setNfts(response.data.assets);
+      setCursor({
+        next: response.data.next,
+        prev: response.data.previous,
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  async function fetchNftsWithCursor(address: string, cursor: string) {
+    try {
+      const response = await axios.get<{
+        assets: Nft[];
+        next: string;
+        previous: string;
+      }>(
+        `https://api.opensea.io/api/v1/assets?asset_contract_address=${address}&cursor=${cursor}`
+      );
+      setNfts(response.data.assets);
+      setCursor({
+        next: response.data.next,
+        prev: response.data.previous,
+      });
     } catch (error) {
       console.error(error);
     }
@@ -56,6 +90,27 @@ const App: React.FC = () => {
     setSelectedNft(null);
   }
 
+  function handlePreviousPage() {
+    if (contractAddress && cursor.prev) {
+      // Disable action
+      setCursor({
+        next: null,
+        prev: null,
+      });
+      fetchNftsWithCursor(contractAddress, cursor.prev);
+    }
+  }
+  function handleNextPage() {
+    if (contractAddress && cursor.next) {
+      // Disable action
+      setCursor({
+        next: null,
+        prev: null,
+      });
+      fetchNftsWithCursor(contractAddress, cursor.next);
+    }
+  }
+
   return (
     <div className="app">
       <h1>NFT Grid</h1>
@@ -69,12 +124,29 @@ const App: React.FC = () => {
         }}
         className="form-control form-control-lg"
       />
+
       <div className="nft-grid">
         {nfts.map((nft) => (
           <div key={nft.id} className="nft-grid-item">
             <NftCard nft={nft} onClick={handleCardClick} />
           </div>
         ))}
+      </div>
+      <div className="d-flex justify-content-end ml-auto mt-4">
+        <button
+          className="btn btn-outline-secondary"
+          disabled={!cursor.prev}
+          onClick={handlePreviousPage}
+        >
+          Previous
+        </button>
+        <button
+          className="btn btn-primary ml-2"
+          disabled={!cursor.next}
+          onClick={handleNextPage}
+        >
+          Next
+        </button>
       </div>
       <NftModal nft={selectedNft} onHide={handleModalClose} />
     </div>
